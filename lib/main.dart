@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:ubiuas/mapScreen.dart';
-import 'package:ubiuas/chatBot.dart';
+import 'package:ubiuas/mapScreen.dart'; // Reemplaza con tu implementación del mapa
+import 'package:ubiuas/chatBot.dart'; // Asegúrate de que las rutas sean correctas
 
-void main() => runApp(MyApp());
+void main() => runApp(const MyApp());
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -10,8 +10,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Mapa con Routing OSRM (Foot)',
-      home: HomeScreen(),
+      title: 'Mapa con Chatbot',
+      home: const HomeScreen(),
     );
   }
 }
@@ -25,7 +25,7 @@ class HomeScreen extends StatelessWidget {
       body: Stack(
         children: [
           // Mapa en el fondo
-          const MapScreen(),
+          const MapScreen(), // Implementa tu mapa aquí
 
           // Chatbot flotante
           Positioned(
