@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert'; // Para trabajar con JSON
 import 'package:http/http.dart' as http; // Para realizar solicitudes HTTP
+import 'package:ubiuas/mapScreen.dart';
 
 class ChatBot extends StatefulWidget {
   const ChatBot({super.key});
@@ -14,8 +15,38 @@ class _ChatBotState extends State<ChatBot> {
   final TextEditingController _controller = TextEditingController();
   final String sessionId =
       "usuario_123"; // ID de sesión fijo para esta implementación
-  final String apiUrl = "http://127.0.0.1:5000";
-  // final String apiUrl = "https://docker-api-chatbot.onrender.com";
+  final String apiUrl =
+      "http://127.0.0.1:5000"; // Cambiar según la URL de la API
+
+  // Método asincrónico para iniciar la sesión
+  Future<String> iniciarSesion() async {
+    try {
+      final url = Uri.parse(apiUrl + '/iniciar');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "session_id": sessionId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return 'Sesión iniciada con éxito';
+      } else {
+        return 'Error al iniciar la sesión: ${response.statusCode}';
+      }
+    } catch (e) {
+      return 'Error al iniciar la sesión: $e';
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    iniciarSesion().then((result) {
+      print(result); // Mostrar el resultado de la sesión
+    });
+  }
 
   void sendMessage(String text) async {
     if (text.isEmpty) return;
@@ -101,11 +132,49 @@ class _ChatBotState extends State<ChatBot> {
     }
   }
 
+  // En el ChatBot, agregamos la lógica para preguntar si el usuario quiere viajar
   void _handleOptionSelection(String lugar) async {
     final response = await _obtenerCoordenadas(lugar);
     setState(() {
       messages.add({"bot": response});
     });
+
+    // Extraemos las coordenadas del lugar para pasarlas al mapa
+    RegExp coordenadasRegex =
+        RegExp(r"Coordenadas:\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)");
+    final match = coordenadasRegex.firstMatch(response);
+
+    if (match != null) {
+      // Extraemos las coordenadas
+      double latitud = double.parse(match.group(1)!);
+      double longitud = double.parse(match.group(2)!);
+
+      // Preguntar al usuario si quiere viajar a ese lugar
+      setState(() {
+        messages.add({
+          "bot": "¿Quieres viajar a esta ubicación?",
+          "coordenadas": {"latitud": latitud, "longitud": longitud}
+        });
+        messages.add({"bot": "Sí", "opcion": "si"});
+        messages.add({"bot": "No", "opcion": "no"});
+      });
+    } else {
+      // Si no encontramos las coordenadas, mostramos un mensaje de error
+      setState(() {
+        messages.add({"bot": "No se pudieron obtener las coordenadas."});
+      });
+    }
+  }
+
+  // Llamamos a la pantalla del mapa si el usuario responde afirmativamente.
+  void _navigateToMap(BuildContext context, double lat, double lon) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            MapScreen(lat, lon), // Pasa las coordenadas de destino
+      ),
+    );
   }
 
   @override
@@ -142,8 +211,40 @@ class _ChatBotState extends State<ChatBot> {
                         }).toList(),
                       ],
                     );
+                  } else if (message['opcion'] == 'si' ||
+                      message['opcion'] == 'no') {
+                    // Mostrar solo un conjunto de botones "Sí" y "No"
+                    return Column(
+                      children: [
+                        if (message['opcion'] == 'si')
+                          Container(
+                            margin: const EdgeInsets.symmetric(vertical: 5),
+                            child: ElevatedButton(
+                              onPressed: () {
+                                final coordenadas =
+                                    message['coordenadas'] as Map;
+                                _navigateToMap(context, coordenadas['latitud'],
+                                    coordenadas['longitud']);
+                              },
+                              child: const Text("Sí"),
+                            ),
+                          ),
+                        if (message['opcion'] == 'no')
+                          Container(
+                            margin: const EdgeInsets.symmetric(vertical: 5),
+                            child: ElevatedButton(
+                              onPressed: () {
+                                // Lógica para "No" (si es necesario)
+                                print("PRESIONO NO");
+                              },
+                              child: const Text("No"),
+                            ),
+                          ),
+                      ],
+                    );
                   }
 
+                  // Mostrar mensaje de texto normal
                   return Align(
                     alignment:
                         isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -151,7 +252,6 @@ class _ChatBotState extends State<ChatBot> {
                       margin: const EdgeInsets.symmetric(vertical: 5),
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: isUser ? Colors.blue : Colors.grey[300],
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(

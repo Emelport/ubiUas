@@ -3,9 +3,13 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:geolocator/geolocator.dart'; // Importa el paquete
 
 class MapScreen extends StatefulWidget {
-  const MapScreen({super.key});
+  final double latitudDestino;
+  final double longitudDestino;
+
+  const MapScreen(this.latitudDestino, this.longitudDestino, {super.key});
 
   @override
   _MapScreenState createState() => _MapScreenState();
@@ -22,40 +26,41 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     _mapController = MapController();
+    _getCurrentLocation();
+    pointB = LatLng(widget.latitudDestino, widget.longitudDestino);
   }
 
-  // Manejar la selección de puntos y solicitar la ruta
-  void handleTap(LatLng latlng) {
+  // Método para obtener la ubicación actual usando Geolocator
+  Future<void> _getCurrentLocation() async {
+    // Verificar los permisos de ubicación
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (!serviceEnabled || permission == LocationPermission.denied) {
+      // Si no se tienen los permisos o el servicio está deshabilitado
+      print("Ubicación no disponible.");
+      return;
+    }
+
+    Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
+
     setState(() {
-      if (pointA == null) {
-        pointA = latlng;
-        routePoints.clear(); // Limpiar ruta
-        stepPoints.clear(); // Limpiar pasos
-      } else if (pointB == null) {
-        pointB = latlng;
-        // Generar la ruta una vez que los puntos están seleccionados
-        getRoute(pointA!, pointB!);
-      } else {
-        pointA = latlng;
-        pointB = null;
-        routePoints.clear();
-        stepPoints.clear(); // Limpiar pasos
-      }
+      // Establecer las coordenadas de la ubicación actual (pointA)
+      pointA = LatLng(position.latitude, position.longitude);
     });
+
+    // Llamar a getRoute solo después de obtener la ubicación actual
+    if (pointA != null && pointB != null) {
+      await getRoute(pointA!, pointB!); // Obtener la ruta
+    }
   }
 
   // Método para obtener la ruta con el perfil "foot"
   Future<void> getRoute(LatLng start, LatLng end) async {
     try {
-      // Ajustar la URL para incluir el parámetro 'steps' y 'alternatives'
       final url = Uri.parse(
           'https://routing.openstreetmap.de/routed-foot/route/v1/foot/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?geometries=polyline&steps=true&alternatives=true');
-
-      // Imprimir las coordenadas en consola
-      print(start.longitude.toString());
-      print(start.latitude.toString());
-      print(end.longitude.toString());
-      print(end.latitude.toString());
 
       final response = await http.get(url);
 
@@ -70,6 +75,11 @@ class _MapScreenState extends State<MapScreen> {
           routePoints = coordinates
               .map((coord) => LatLng(coord[0], coord[1]))
               .toList(); // Convertir coordenadas a LatLng
+
+          // Si los pasos están disponibles, extraerlos (puedes personalizar esto)
+          if (data['routes'][0]['legs'] != null) {
+            stepPoints = _extractStepPoints(data['routes'][0]['legs'][0]);
+          }
         });
       } else {
         print('Error en la respuesta de la API: ${response.statusCode}');
@@ -77,6 +87,17 @@ class _MapScreenState extends State<MapScreen> {
     } catch (e) {
       print('Error al obtener la ruta: $e');
     }
+  }
+
+  // Método para extraer los puntos de paso de la ruta
+  List<LatLng> _extractStepPoints(Map<String, dynamic> leg) {
+    List<LatLng> steps = [];
+    for (var step in leg['steps']) {
+      var startLat = step['start_location']['lat'];
+      var startLng = step['start_location']['lng'];
+      steps.add(LatLng(startLat, startLng));
+    }
+    return steps;
   }
 
   // Método para decodificar la geometría en formato polyline
@@ -122,10 +143,7 @@ class _MapScreenState extends State<MapScreen> {
         options: MapOptions(
           initialCenter:
               LatLng(25.814667, -108.980793), // Coordenadas iniciales
-          minZoom: 10.0,
-          onTap: (tapPosition, latlng) {
-            handleTap(latlng); // Manejar la selección en el mapa
-          },
+          minZoom: 8.0,
         ),
         children: [
           TileLayer(
@@ -144,7 +162,6 @@ class _MapScreenState extends State<MapScreen> {
                 points: stepPoints, // Mostrar los pasos
                 color: Colors.green,
                 strokeWidth: 2.0,
-                // isDotted: true, // Opción para mostrar como línea discontinua
               ),
             ],
           ),
@@ -154,15 +171,12 @@ class _MapScreenState extends State<MapScreen> {
               if (pointA != null)
                 Marker(
                   point: pointA!,
-                  child: Icon(Icons.location_on,
-                      color:
-                          Colors.green), // Usar 'child' en lugar de 'builder'
+                  child: Icon(Icons.location_on, color: Colors.green),
                 ),
               if (pointB != null)
                 Marker(
                   point: pointB!,
-                  child: Icon(Icons.location_on,
-                      color: Colors.red), // Usar 'child' en lugar de 'builder'
+                  child: Icon(Icons.location_on, color: Colors.red),
                 ),
             ],
           ),
