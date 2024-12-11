@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert'; // Para trabajar con JSON
 import 'package:http/http.dart' as http; // Para realizar solicitudes HTTP
+import 'package:latlong2/latlong.dart';
 import 'package:ubiuas/mapScreen.dart';
 
 class ChatBot extends StatefulWidget {
@@ -16,9 +17,8 @@ class _ChatBotState extends State<ChatBot> {
   final String sessionId =
       "usuario_123"; // ID de sesión fijo para esta implementación
   final String apiUrl =
-      "http://127.0.0.1:5000"; // Cambiar según la URL de la API
+      "https://docker-api-chatbot.onrender.com/"; // Cambiar según la URL de la API
 
-  // Método asincrónico para iniciar la sesión
   Future<String> iniciarSesion() async {
     try {
       final url = Uri.parse(apiUrl + '/iniciar');
@@ -57,9 +57,13 @@ class _ChatBotState extends State<ChatBot> {
 
     final botResponse = await _getBotResponse(text);
 
-    if (botResponse.isNotEmpty) {
+    if (botResponse != null) {
       setState(() {
-        messages.add({"bot": botResponse});
+        if (botResponse is Map && botResponse['opciones'] != null) {
+          messages.add({"bot_opciones": botResponse});
+        } else {
+          messages.add({"bot": botResponse});
+        }
       });
     }
     _controller.clear();
@@ -90,16 +94,10 @@ class _ChatBotState extends State<ChatBot> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['resultados'] != null) {
-          List<dynamic> resultados = data['resultados'];
-
-          if (resultados.length == 1) {
-            return await _obtenerCoordenadas(resultados[0][0]);
-          } else {
-            return {
-              "opciones": resultados,
-              "mensaje": "Se encontraron varios resultados. Selecciona uno:"
-            };
-          }
+          return {
+            "opciones": data['resultados'],
+            "mensaje": "Se encontraron varios resultados. Selecciona uno:"
+          };
         } else {
           return 'No se encontraron resultados.';
         }
@@ -123,7 +121,20 @@ class _ChatBotState extends State<ChatBot> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final coordenadas = data['coordenadas'];
-        return "Lugar: ${data['nombre']}\nTipo: ${data['tipo']}\nCoordenadas: ${coordenadas['latitud']}, ${coordenadas['longitud']}";
+        final latitud = coordenadas['latitud'];
+        final longitud = coordenadas['longitud'];
+
+        setState(() {
+          messages.add({
+            "bot":
+                "Lugar: ${data['nombre']}\nTipo: ${data['tipo']}\nCoordenadas: $latitud, $longitud",
+          });
+          messages.add({
+            "bot": "¿Quieres viajar a esta ubicación?",
+            "coordenadas": {"latitud": latitud, "longitud": longitud}
+          });
+        });
+        return "Preguntando...";
       } else {
         return 'Error al buscar el lugar.';
       }
@@ -132,47 +143,18 @@ class _ChatBotState extends State<ChatBot> {
     }
   }
 
-  // En el ChatBot, agregamos la lógica para preguntar si el usuario quiere viajar
-  void _handleOptionSelection(String lugar) async {
-    final response = await _obtenerCoordenadas(lugar);
-    setState(() {
-      messages.add({"bot": response});
-    });
-
-    // Extraemos las coordenadas del lugar para pasarlas al mapa
-    RegExp coordenadasRegex =
-        RegExp(r"Coordenadas:\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)");
-    final match = coordenadasRegex.firstMatch(response);
-
-    if (match != null) {
-      // Extraemos las coordenadas
-      double latitud = double.parse(match.group(1)!);
-      double longitud = double.parse(match.group(2)!);
-
-      // Preguntar al usuario si quiere viajar a ese lugar
-      setState(() {
-        messages.add({
-          "bot": "¿Quieres viajar a esta ubicación?",
-          "coordenadas": {"latitud": latitud, "longitud": longitud}
-        });
-        messages.add({"bot": "Sí", "opcion": "si"});
-        messages.add({"bot": "No", "opcion": "no"});
-      });
-    } else {
-      // Si no encontramos las coordenadas, mostramos un mensaje de error
-      setState(() {
-        messages.add({"bot": "No se pudieron obtener las coordenadas."});
-      });
+  void _navigateToMap(BuildContext context, double? lat, double? lon) {
+    if (lat == null || lon == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pueden cargar las coordenadas.')),
+      );
+      return;
     }
-  }
 
-  // Llamamos a la pantalla del mapa si el usuario responde afirmativamente.
-  void _navigateToMap(BuildContext context, double lat, double lon) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            MapScreen(lat, lon), // Pasa las coordenadas de destino
+        builder: (context) => MapScreen(lat, lon),
       ),
     );
   }
@@ -193,58 +175,48 @@ class _ChatBotState extends State<ChatBot> {
                   final message = messages[index];
                   final isUser = message.keys.first == "user";
 
-                  if (message['bot'] is Map) {
-                    final opciones = message['bot']['opciones'];
-                    final mensaje = message['bot']['mensaje'];
+                  if (message.containsKey('bot_opciones')) {
+                    final opciones = message['bot_opciones']['opciones'];
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          mensaje,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                        Text(message['bot_opciones']['mensaje']),
                         ...opciones.map<Widget>((opcion) {
-                          return TextButton(
-                            onPressed: () => _handleOptionSelection(opcion[0]),
+                          return ElevatedButton(
+                            onPressed: () {
+                              _obtenerCoordenadas(opcion[0]);
+                            },
                             child: Text(opcion[0]),
                           );
                         }).toList(),
                       ],
                     );
-                  } else if (message['opcion'] == 'si' ||
-                      message['opcion'] == 'no') {
-                    // Mostrar solo un conjunto de botones "Sí" y "No"
-                    return Column(
+                  }
+
+                  if (message.containsKey('coordenadas')) {
+                    return Row(
                       children: [
-                        if (message['opcion'] == 'si')
-                          Container(
-                            margin: const EdgeInsets.symmetric(vertical: 5),
-                            child: ElevatedButton(
-                              onPressed: () {
-                                final coordenadas =
-                                    message['coordenadas'] as Map;
-                                _navigateToMap(context, coordenadas['latitud'],
-                                    coordenadas['longitud']);
-                              },
-                              child: const Text("Sí"),
-                            ),
-                          ),
-                        if (message['opcion'] == 'no')
-                          Container(
-                            margin: const EdgeInsets.symmetric(vertical: 5),
-                            child: ElevatedButton(
-                              onPressed: () {
-                                // Lógica para "No" (si es necesario)
-                                print("PRESIONO NO");
-                              },
-                              child: const Text("No"),
-                            ),
-                          ),
+                        ElevatedButton(
+                          onPressed: () {
+                            final coords = message['coordenadas'];
+                            _navigateToMap(
+                                context, coords['latitud'], coords['longitud']);
+                          },
+                          child: const Text("Sí"),
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              messages.add({"bot": "¡Entendido!"});
+                            });
+                          },
+                          child: const Text("No"),
+                        ),
                       ],
                     );
                   }
 
-                  // Mostrar mensaje de texto normal
                   return Align(
                     alignment:
                         isUser ? Alignment.centerRight : Alignment.centerLeft,
