@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:convert'; // Para trabajar con JSON
 import 'package:http/http.dart' as http; // Para realizar solicitudes HTTP
+import 'package:latlong2/latlong.dart';
 import 'package:ubiuas/mapScreen.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class ChatBot extends StatefulWidget {
   const ChatBot({super.key});
@@ -18,8 +18,6 @@ class _ChatBotState extends State<ChatBot> {
       "usuario_123"; // ID de sesión fijo para esta implementación
   final String apiUrl =
       "https://docker-api-chatbot.onrender.com/"; // Cambiar según la URL de la API
-  stt.SpeechToText _speech = stt.SpeechToText();
-  bool _isListening = false;
 
   Future<String> iniciarSesion() async {
     try {
@@ -161,27 +159,6 @@ class _ChatBotState extends State<ChatBot> {
     );
   }
 
-  void _startListening() async {
-    bool available = await _speech.initialize();
-    if (available) {
-      setState(() {
-        _isListening = true;
-      });
-      _speech.listen(onResult: (result) {
-        setState(() {
-          _controller.text = result.recognizedWords;
-        });
-      });
-    }
-  }
-
-  void _stopListening() {
-    _speech.stop();
-    setState(() {
-      _isListening = false;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -269,26 +246,12 @@ class _ChatBotState extends State<ChatBot> {
                       hintText: 'Escribe tu mensaje...',
                     ),
                   ),
-<<<<<<< Updated upstream
                 ),
                 IconButton(
                   icon: const Icon(Icons.send),
                   onPressed: () => sendMessage(_controller.text),
                 ),
               ],
-=======
-                  IconButton(
-                    icon: const Icon(Icons.send, color: Colors.blue),
-                    onPressed: () => sendMessage(_controller.text),
-                  ),
-                  IconButton(
-                    icon: Icon(_isListening ? Icons.mic_off : Icons.mic,
-                        color: Colors.blue),
-                    onPressed: _isListening ? _stopListening : _startListening,
-                  ),
-                ],
-              ),
->>>>>>> Stashed changes
             ),
           ],
         ),
