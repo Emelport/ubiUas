@@ -9,6 +9,8 @@
 
     <!-- Permiso para acceder a la cámara -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="ubiuas"
         android:name="${applicationName}"

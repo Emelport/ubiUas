@@ -18,7 +18,7 @@ class _ChatBotState extends State<ChatBot> {
   final String sessionId =
       "usuario_123"; // ID de sesión fijo para esta implementación
   final String apiUrl =
-      "https://docker-api-chatbot.onrender.com/"; // Cambiar según la URL de la API
+      "https://docker-api-chatbot.onrender.com"; // Cambiar según la URL de la API
   stt.SpeechToText _speech = stt.SpeechToText();
   bool _isListening = false;
 
