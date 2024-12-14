@@ -185,57 +185,88 @@ class _MapScreenState extends State<MapScreen> {
     getRoute(start, end); // Obtén la nueva ruta
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mapa Facultad Ingeniería Mochis'),
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      title: const Text('Mapa Facultad Ingeniería Mochis'),
+    ),
+    body: FlutterMap(
+      mapController: _mapController,
+      options: MapOptions(
+        initialCenter:
+            LatLng(25.814667, -108.980793), // Coordenadas iniciales
+        minZoom: 8.0,
       ),
-      body: FlutterMap(
-        mapController: _mapController,
-        options: MapOptions(
-          initialCenter:
-              LatLng(25.814667, -108.980793), // Coordenadas iniciales
-          minZoom: 8.0,
+      children: [
+        TileLayer(
+          urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          subdomains: ['a', 'b', 'c'],
         ),
-        children: [
-          TileLayer(
-            urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-            subdomains: ['a', 'b', 'c'],
-          ),
-          PolylineLayer(
-            polylines: [
-              Polyline(
-                points: routePoints,
-                color: Colors.blue,
-                strokeWidth: 4.0,
+        PolylineLayer(
+          polylines: [
+            Polyline(
+              points: routePoints,
+              color: Colors.blue,
+              strokeWidth: 4.0,
+            ),
+          ],
+        ),
+        MarkerLayer(
+          markers: [
+            if (pointA != null)
+              Marker(
+                point: pointA!,
+                child: const Icon(
+                  Icons.location_on,
+                  color: Colors.green,
+                  size: 30,
+                ),
               ),
-            ],
-          ),
-          MarkerLayer(
-            markers: [
-              if (pointA != null)
-                Marker(
-                  point: pointA!,
-                  child: const Icon(
-                    Icons.location_on,
-                    color: Colors.green,
-                    size: 30,
-                  ),
+            if (pointB != null)
+              Marker(
+                point: pointB!,
+                child: const Icon(
+                  Icons.location_on,
+                  color: Colors.red,
+                  size: 30,
                 ),
-              if (pointB != null)
-                Marker(
-                  point: pointB!,
-                  child: const Icon(
-                    Icons.location_on,
-                    color: Colors.red,
-                    size: 30,
-                  ),
-                ),
-            ],
+              ),
+          ],
+        ),
+      ],
+    ),
+    floatingActionButton: FloatingActionButton(
+      onPressed: _launchARView,
+      backgroundColor: Colors.blue,
+      child: const Icon(
+        Icons.view_in_ar,
+        color: Colors.white,
+      ),
+    ),
+    floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+    bottomNavigationBar: BottomAppBar(
+      shape: const CircularNotchedRectangle(),
+      notchMargin: 8.0,
+      child: Row(
+        mainAxisSize: MainAxisSize.max,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          TextButton.icon(
+            onPressed: _launchARView,
+            icon: const Icon(Icons.view_in_ar, color: Colors.blue),
+            label: const Text("Realidad Aumentada"),
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
+
+/// Método para abrir la vista de realidad aumentada.
+void _launchARView() {
+  // Aquí puedes integrar tu funcionalidad de AR.
+  // Por ejemplo, navegar a una nueva pantalla o abrir un widget de AR.
+  print("Botón de AR presionado");
+}
 }
