@@ -161,107 +161,142 @@ class _ChatBotState extends State<ChatBot> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Chatbot'),
-      content: SizedBox(
-        width: MediaQuery.of(context).size.width * 0.8,
-        height: MediaQuery.of(context).size.height * 0.5,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('UbiUAS Chatbot Interactivo',
+            style: TextStyle(fontSize: 20)),
+        backgroundColor: Colors.blueGrey,
+      ),
+      body: Container(
+        decoration: const BoxDecoration(color: Colors.white),
         child: Column(
           children: [
             Expanded(
-              child: ListView.builder(
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  final message = messages[index];
-                  final isUser = message.keys.first == "user";
-
-                  if (message.containsKey('bot_opciones')) {
-                    final opciones = message['bot_opciones']['opciones'];
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(message['bot_opciones']['mensaje']),
-                        ...opciones.map<Widget>((opcion) {
-                          return ElevatedButton(
-                            onPressed: () {
-                              _obtenerCoordenadas(opcion[0]);
-                            },
-                            child: Text(opcion[0]),
-                          );
-                        }).toList(),
-                      ],
-                    );
-                  }
-
-                  if (message.containsKey('coordenadas')) {
-                    return Row(
-                      children: [
-                        ElevatedButton(
-                          onPressed: () {
-                            final coords = message['coordenadas'];
-                            _navigateToMap(
-                                context, coords['latitud'], coords['longitud']);
-                          },
-                          child: const Text("Sí"),
-                        ),
-                        const SizedBox(width: 10),
-                        ElevatedButton(
-                          onPressed: () {
-                            setState(() {
-                              messages.add({"bot": "¡Entendido!"});
-                            });
-                          },
-                          child: const Text("No"),
-                        ),
-                      ],
-                    );
-                  }
-
-                  return Align(
-                    alignment:
-                        isUser ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 5),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        message.values.first.toString(),
-                        style: TextStyle(
-                          color: isUser ? Colors.white : Colors.black,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: const InputDecoration(
-                      hintText: 'Escribe tu mensaje...',
-                    ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(15),
+                    topRight: Radius.circular(15),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: () => sendMessage(_controller.text),
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(10),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final message = messages[index];
+                    final isUser = message.keys.first == "user";
+
+                    if (message.containsKey('bot_opciones')) {
+                      final opciones = message['bot_opciones']['opciones'];
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            message['bot_opciones']['mensaje'],
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          ...opciones.map<Widget>((opcion) {
+                            return ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    const Color.fromARGB(255, 212, 229, 236),
+                                textStyle: const TextStyle(fontSize: 14),
+                              ),
+                              onPressed: () {
+                                _obtenerCoordenadas(opcion[0]);
+                              },
+                              child: Text(opcion[0]),
+                            );
+                          }).toList(),
+                        ],
+                      );
+                    }
+
+                    if (message.containsKey('coordenadas')) {
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                            ),
+                            onPressed: () {
+                              final coords = message['coordenadas'];
+                              _navigateToMap(context, coords['latitud'],
+                                  coords['longitud']);
+                            },
+                            child: const Text("Sí",
+                                style: TextStyle(color: Colors.white)),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                messages.add({"bot": "¡Entendido!"});
+                              });
+                            },
+                            child: const Text("No",
+                                style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      );
+                    }
+
+                    return Align(
+                      alignment:
+                          isUser ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(vertical: 5),
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          color: isUser ? Colors.blue : Colors.grey[300],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          message.values.first.toString(),
+                          style: TextStyle(
+                            color: isUser ? Colors.white : Colors.black,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      decoration: const InputDecoration(
+                        hintText: 'Escribe tu mensaje...',
+                        border: InputBorder.none,
+                      ),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.send, color: Colors.blue),
+                    onPressed: () => sendMessage(_controller.text),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cerrar'),
-        ),
-      ],
     );
   }
 }
