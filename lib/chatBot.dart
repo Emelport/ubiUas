@@ -239,35 +239,12 @@ class _ChatBotState extends State<ChatBot> {
                     }
 
                     if (message.containsKey('coordenadas')) {
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                            ),
-                            onPressed: () {
-                              final coords = message['coordenadas'];
-                              _navigateToMap(context, coords['latitud'],
-                                  coords['longitud']);
-                            },
-                            child: const Text("Sí",
-                                style: TextStyle(color: Colors.white)),
-                          ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                messages.add({"bot": "¡Entendido!"});
-                              });
-                            },
-                            child: const Text("No",
-                                style: TextStyle(color: Colors.white)),
-                          ),
-                        ],
-                      );
+                      final coords = message['coordenadas'];
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _navigateToMap(context, coords['latitud'],
+                            coords['longitud']);
+                      });
+                      return const SizedBox.shrink();
                     }
 
                     return Align(
