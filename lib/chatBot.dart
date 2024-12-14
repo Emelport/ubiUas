@@ -3,6 +3,7 @@ import 'dart:convert'; // Para trabajar con JSON
 import 'package:http/http.dart' as http; // Para realizar solicitudes HTTP
 import 'package:latlong2/latlong.dart';
 import 'package:ubiuas/mapScreen.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class ChatBot extends StatefulWidget {
   const ChatBot({super.key});
@@ -18,6 +19,29 @@ class _ChatBotState extends State<ChatBot> {
       "usuario_123"; // ID de sesión fijo para esta implementación
   final String apiUrl =
       "https://docker-api-chatbot.onrender.com/"; // Cambiar según la URL de la API
+  stt.SpeechToText _speech = stt.SpeechToText();
+  bool _isListening = false;
+
+  void _startListening() async {
+    bool available = await _speech.initialize();
+    if (available) {
+      setState(() {
+        _isListening = true;
+      });
+      _speech.listen(onResult: (result) {
+        setState(() {
+          _controller.text = result.recognizedWords;
+        });
+      });
+    }
+  }
+
+  void _stopListening() {
+    _speech.stop();
+    setState(() {
+      _isListening = false;
+    });
+  }
 
   Future<String> iniciarSesion() async {
     try {
@@ -161,107 +185,147 @@ class _ChatBotState extends State<ChatBot> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Chatbot'),
-      content: SizedBox(
-        width: MediaQuery.of(context).size.width * 0.8,
-        height: MediaQuery.of(context).size.height * 0.5,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('UbiUAS Chatbot Interactivo',
+            style: TextStyle(fontSize: 20)),
+        backgroundColor: Colors.blueGrey,
+      ),
+      body: Container(
+        decoration: const BoxDecoration(color: Colors.white),
         child: Column(
           children: [
             Expanded(
-              child: ListView.builder(
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  final message = messages[index];
-                  final isUser = message.keys.first == "user";
-
-                  if (message.containsKey('bot_opciones')) {
-                    final opciones = message['bot_opciones']['opciones'];
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(message['bot_opciones']['mensaje']),
-                        ...opciones.map<Widget>((opcion) {
-                          return ElevatedButton(
-                            onPressed: () {
-                              _obtenerCoordenadas(opcion[0]);
-                            },
-                            child: Text(opcion[0]),
-                          );
-                        }).toList(),
-                      ],
-                    );
-                  }
-
-                  if (message.containsKey('coordenadas')) {
-                    return Row(
-                      children: [
-                        ElevatedButton(
-                          onPressed: () {
-                            final coords = message['coordenadas'];
-                            _navigateToMap(
-                                context, coords['latitud'], coords['longitud']);
-                          },
-                          child: const Text("Sí"),
-                        ),
-                        const SizedBox(width: 10),
-                        ElevatedButton(
-                          onPressed: () {
-                            setState(() {
-                              messages.add({"bot": "¡Entendido!"});
-                            });
-                          },
-                          child: const Text("No"),
-                        ),
-                      ],
-                    );
-                  }
-
-                  return Align(
-                    alignment:
-                        isUser ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 5),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        message.values.first.toString(),
-                        style: TextStyle(
-                          color: isUser ? Colors.white : Colors.black,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: const InputDecoration(
-                      hintText: 'Escribe tu mensaje...',
-                    ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(15),
+                    topRight: Radius.circular(15),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: () => sendMessage(_controller.text),
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(10),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final message = messages[index];
+                    final isUser = message.keys.first == "user";
+
+                    if (message.containsKey('bot_opciones')) {
+                      final opciones = message['bot_opciones']['opciones'];
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            message['bot_opciones']['mensaje'],
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          ...opciones.map<Widget>((opcion) {
+                            return ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    const Color.fromARGB(255, 212, 229, 236),
+                                textStyle: const TextStyle(fontSize: 14),
+                              ),
+                              onPressed: () {
+                                _obtenerCoordenadas(opcion[0]);
+                              },
+                              child: Text(opcion[0]),
+                            );
+                          }).toList(),
+                        ],
+                      );
+                    }
+
+                    if (message.containsKey('coordenadas')) {
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                            ),
+                            onPressed: () {
+                              final coords = message['coordenadas'];
+                              _navigateToMap(context, coords['latitud'],
+                                  coords['longitud']);
+                            },
+                            child: const Text("Sí",
+                                style: TextStyle(color: Colors.white)),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                messages.add({"bot": "¡Entendido!"});
+                              });
+                            },
+                            child: const Text("No",
+                                style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      );
+                    }
+
+                    return Align(
+                      alignment:
+                          isUser ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(vertical: 5),
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          color: isUser ? Colors.blue : Colors.grey[300],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          message.values.first.toString(),
+                          style: TextStyle(
+                            color: isUser ? Colors.white : Colors.black,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      decoration: const InputDecoration(
+                        hintText: 'Escribe tu mensaje...',
+                        border: InputBorder.none,
+                      ),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.send, color: Colors.blue),
+                    onPressed: () => sendMessage(_controller.text),
+                  ),
+                  IconButton(
+                    icon: Icon(_isListening ? Icons.mic_off : Icons.mic,
+                        color: Colors.blue),
+                    onPressed: _isListening ? _stopListening : _startListening,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cerrar'),
-        ),
-      ],
     );
   }
 }

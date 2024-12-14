@@ -19,6 +19,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   geolocator: ^9.0.1  # Asegúrate de usar la última versión disponible
   permission_handler: ^10.0.0
+  speech_to_text: ^7.0.0
 
 
 dev_dependencies:
