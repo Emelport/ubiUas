@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:permission_handler/permission_handler.dart'; // Importar permission_handler
 
 class RouteController {
   static final RouteController _instance = RouteController._internal();
@@ -39,20 +41,25 @@ class _MapScreenState extends State<MapScreen> {
   LatLng? pointA;
   LatLng? pointB;
   List<LatLng> routePoints = [];
+  late Future<Position> _currentLocation;
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
 
-    // Punto inicial: Facultad de Ingeniería Mochis
-    pointA = const LatLng(25.814667, -108.980793);
-    pointB = LatLng(widget.latitudDestino, widget.longitudDestino);
+    // Obtener la ubicación actual y asignarla a pointA
+    _getCurrentLocation().then((currentLocation) {
+      setState(() {
+        pointA = LatLng(currentLocation.latitude, currentLocation.longitude);
+        pointB = LatLng(widget.latitudDestino, widget.longitudDestino);
 
-    // Obtener la ruta inicial
-    if (pointA != null && pointB != null) {
-      getRoute(pointA!, pointB!);
-    }
+        // Obtener la ruta inicial si ambas coordenadas están disponibles
+        if (pointA != null && pointB != null) {
+          getRoute(pointA!, pointB!);
+        }
+      });
+    });
 
     // Escuchar cambios del RouteController
     RouteController().routeNotifier.addListener(() {
@@ -61,6 +68,51 @@ class _MapScreenState extends State<MapScreen> {
         drawRoute(route.first, route.last);
       }
     });
+  }
+
+  // Método para obtener la ubicación actual
+  Future<Position> _getCurrentLocation() async {
+    // Solicitar permisos de ubicación y cámara
+    await _requestPermissions();
+
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (!serviceEnabled) {
+      throw Exception("Los servicios de ubicación están desactivados.");
+    }
+
+    // Si los permisos están denegados, solicita permisos
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        throw Exception("Permisos de ubicación denegados.");
+      }
+    }
+
+    // Si los permisos son permanentemente denegados
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception("Permisos de ubicación permanentemente denegados.");
+    }
+
+    // Obtener la ubicación
+    return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
+  }
+
+  // Método para solicitar permisos de ubicación y cámara
+  Future<void> _requestPermissions() async {
+    // Solicitar permisos de ubicación y cámara
+    PermissionStatus locationPermission = await Permission.location.request();
+    PermissionStatus cameraPermission = await Permission.camera.request();
+
+    if (!locationPermission.isGranted) {
+      throw Exception("Permiso de ubicación no concedido.");
+    }
+
+    if (!cameraPermission.isGranted) {
+      throw Exception("Permiso de cámara no concedido.");
+    }
   }
 
   /// Dibuja la ruta entre dos coordenadas.
