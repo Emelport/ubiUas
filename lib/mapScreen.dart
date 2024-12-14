@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -40,8 +42,10 @@ class _MapScreenState extends State<MapScreen> {
   late MapController _mapController;
   LatLng? pointA;
   LatLng? pointB;
+  LatLng? userLocation;
   List<LatLng> routePoints = [];
   late Future<Position> _currentLocation;
+  late Timer _timer; // Para actualizar la posición cada 4 segundos
 
   @override
   void initState() {
@@ -67,6 +71,11 @@ class _MapScreenState extends State<MapScreen> {
       if (route.isNotEmpty) {
         drawRoute(route.first, route.last);
       }
+    });
+
+    // Actualizar la posición del usuario cada 2 segundos
+    _timer = Timer.periodic(Duration(seconds: 2), (timer) {
+      _updateUserLocation();
     });
   }
 
@@ -112,6 +121,19 @@ class _MapScreenState extends State<MapScreen> {
 
     if (!cameraPermission.isGranted) {
       throw Exception("Permiso de cámara no concedido.");
+    }
+  }
+
+  // Método para actualizar la ubicación del usuario
+  Future<void> _updateUserLocation() async {
+    try {
+      Position currentLocation = await _getCurrentLocation();
+      setState(() {
+        userLocation =
+            LatLng(currentLocation.latitude, currentLocation.longitude);
+      });
+    } catch (e) {
+      print("Error al obtener la ubicación del usuario: $e");
     }
   }
 
@@ -185,88 +207,104 @@ class _MapScreenState extends State<MapScreen> {
     getRoute(start, end); // Obtén la nueva ruta
   }
 
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      title: const Text('Mapa Facultad Ingeniería Mochis'),
-    ),
-    body: FlutterMap(
-      mapController: _mapController,
-      options: MapOptions(
-        initialCenter:
-            LatLng(25.814667, -108.980793), // Coordenadas iniciales
-        minZoom: 8.0,
+  @override
+  void dispose() {
+    // Cancelar el temporizador cuando el widget sea destruido
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Mapa Facultad Ingeniería Mochis'),
       ),
-      children: [
-        TileLayer(
-          urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-          subdomains: ['a', 'b', 'c'],
+      body: FlutterMap(
+        mapController: _mapController,
+        options: MapOptions(
+          initialCenter:
+              LatLng(25.814667, -108.980793), // Coordenadas iniciales
+          minZoom: 8.0,
         ),
-        PolylineLayer(
-          polylines: [
-            Polyline(
-              points: routePoints,
-              color: Colors.blue,
-              strokeWidth: 4.0,
-            ),
-          ],
-        ),
-        MarkerLayer(
-          markers: [
-            if (pointA != null)
-              Marker(
-                point: pointA!,
-                child: const Icon(
-                  Icons.location_on,
-                  color: Colors.green,
-                  size: 30,
-                ),
-              ),
-            if (pointB != null)
-              Marker(
-                point: pointB!,
-                child: const Icon(
-                  Icons.location_on,
-                  color: Colors.red,
-                  size: 30,
-                ),
-              ),
-          ],
-        ),
-      ],
-    ),
-    floatingActionButton: FloatingActionButton(
-      onPressed: _launchARView,
-      backgroundColor: Colors.blue,
-      child: const Icon(
-        Icons.view_in_ar,
-        color: Colors.white,
-      ),
-    ),
-    floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-    bottomNavigationBar: BottomAppBar(
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 8.0,
-      child: Row(
-        mainAxisSize: MainAxisSize.max,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          TextButton.icon(
-            onPressed: _launchARView,
-            icon: const Icon(Icons.view_in_ar, color: Colors.blue),
-            label: const Text("Realidad Aumentada"),
+          TileLayer(
+            urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            subdomains: ['a', 'b', 'c'],
+          ),
+          PolylineLayer(
+            polylines: [
+              Polyline(
+                points: routePoints,
+                color: Colors.blue,
+                strokeWidth: 4.0,
+              ),
+            ],
+          ),
+          MarkerLayer(
+            markers: [
+              if (pointA != null)
+                Marker(
+                  point: pointA!,
+                  child: const Icon(
+                    Icons.location_on,
+                    color: Colors.green,
+                    size: 30,
+                  ),
+                ),
+              if (pointB != null)
+                Marker(
+                  point: pointB!,
+                  child: const Icon(
+                    Icons.location_on,
+                    color: Colors.red,
+                    size: 30,
+                  ),
+                ),
+              if (userLocation != null)
+                Marker(
+                  point: userLocation!,
+                  child: const Icon(
+                    Icons.location_on,
+                    color: Colors.blue,
+                    size: 30,
+                  ),
+                ),
+            ],
           ),
         ],
       ),
-    ),
-  );
-}
+      floatingActionButton: FloatingActionButton(
+        onPressed: _launchARView,
+        backgroundColor: Colors.blue,
+        child: const Icon(
+          Icons.view_in_ar,
+          color: Colors.white,
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8.0,
+        child: Row(
+          mainAxisSize: MainAxisSize.max,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextButton.icon(
+              onPressed: _launchARView,
+              icon: const Icon(Icons.view_in_ar, color: Colors.blue),
+              label: const Text("Realidad Aumentada"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-/// Método para abrir la vista de realidad aumentada.
-void _launchARView() {
-  // Aquí puedes integrar tu funcionalidad de AR.
-  // Por ejemplo, navegar a una nueva pantalla o abrir un widget de AR.
-  print("Botón de AR presionado");
-}
+  /// Método para abrir la vista de realidad aumentada.
+  void _launchARView() {
+    // Aquí puedes integrar tu funcionalidad de AR.
+    // Por ejemplo, navegar a una nueva pantalla o abrir un widget de AR.
+    print("Botón de AR presionado");
+  }
 }
